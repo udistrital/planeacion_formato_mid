@@ -24,6 +24,7 @@ func (c *FormatoController) URLMapping() {
 // @Failure 403 :id is empty
 // @router /:id [get]
 func (c *FormatoController) ConsultarFormato() {
+
 	defer func() {
 		if err := recover(); err != nil {
 			localError := err.(map[string]interface{})
