@@ -17,3 +17,5 @@ swagger/lib/
 planeacion_formato_mid
 *.exe*
 .exe~
+.mod
+.sum
