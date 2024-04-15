@@ -2,9 +2,9 @@ package controllers
 
 import (
 	"github.com/astaxie/beego"
-	"github.com/udistrital/planeacion_formato_mid/helpers"
-	"github.com/udistrital/planeacion_formato_mid/models"
-	"github.com/udistrital/utils_oas/request"
+	"github.com/udistrital/planeacion_formato_mid/services"
+	"github.com/udistrital/utils_oas/errorhandler"
+	"github.com/udistrital/utils_oas/requestresponse"
 )
 
 // FormatoController operations for Formato
@@ -24,39 +24,16 @@ func (c *FormatoController) URLMapping() {
 // @Failure 403 :id is empty
 // @router /:id [get]
 func (c *FormatoController) ConsultarFormato() {
-
-	defer func() {
-		if err := recover(); err != nil {
-			localError := err.(map[string]interface{})
-			c.Data["mesaage"] = (beego.AppConfig.String("appname") + "/" + "FormatoController" + "/" + (localError["funcion"]).(string))
-			c.Data["data"] = (localError["err"])
-			if status, ok := localError["status"]; ok {
-				c.Abort(status.(string))
-			} else {
-				c.Abort("404")
-			}
-		}
-	}()
+	defer errorhandler.HandlePanic(&c.Controller)
 
 	id := c.Ctx.Input.Param(":id")
-	var res map[string]interface{}
-	var hijos []models.Nodo
-	var plan map[string]interface{}
-	var hijosID []map[string]interface{}
 
-	if err := request.GetJson("http://"+beego.AppConfig.String("PlanesService")+"/subgrupo/hijos/"+id, &res); err == nil {
-		request.LimpiezaRespuestaRefactor(res, &hijos)
-		request.LimpiezaRespuestaRefactor(res, &hijosID)
-		err := request.GetJson("http://"+beego.AppConfig.String("PlanesService")+"/plan/"+id, &res)
-		if err != nil {
-			return
-		}
-		request.LimpiezaRespuestaRefactor(res, &plan)
-		helpers.Limpia(plan)
-		arbol := helpers.ConstruirArbol(hijos, hijosID)
-		c.Data["json"] = arbol
+	if resultado, err := services.ConsultarFormato(id); err == nil {
+		c.Ctx.Output.SetStatus(200)
+		c.Data["json"] = requestresponse.APIResponseDTO(true, 200, resultado)
 	} else {
-		panic(err)
+		c.Ctx.Output.SetStatus(404)
+		c.Data["json"] = requestresponse.APIResponseDTO(true, 404, nil, err.Error())
 	}
 	c.ServeJSON()
 }
