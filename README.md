@@ -1,4 +1,4 @@
-# planeacion_mid
+# planeacion_formato_mid
 Api Mid para el sistema de planeación universidad Distrital
 ## Especificaciones Técnicas
 
@@ -21,16 +21,17 @@ Ejecución del Proyecto
 ## Ejecución del proyecto
 ```
 #1. Obtener el repositorio con Go
-go get github.com/udistrital/planeacion_mid
+go get github.com/udistrital/planeacion_formato_mid
 
 #2. Moverse a la carpeta del repositorio
-cd $GOPATH/src/github.com/udistrital/planeacion_mid
+cd $GOPATH/src/github.com/udistrital/planeacion_formato_mid
 
 # 3. Moverse a la rama **develop**
 git pull origin develop && git checkout develop
 
 # 4. alimentar todas las variables de entorno que utiliza el proyecto.
-PLANES_MID_HTTP_PORT=8080 PLANES_MID_SOME_VARIABLE=some_value bee run
+PLANEACION_FORMATO_MID_HTTP_PORT=8080 
+PLANEACION_FORMATO_MID_SOME_VARIABLE=some_value bee run
 ```
 
 
@@ -38,8 +39,9 @@ PLANES_MID_HTTP_PORT=8080 PLANES_MID_SOME_VARIABLE=some_value bee run
 
 Pruebas unitarias
 ```
-# En Proceso
+formato/{id}
 ```
+![# En Proceso](/tests/Unit_Test/pruebas.png)
 
 ## Licencia
 
