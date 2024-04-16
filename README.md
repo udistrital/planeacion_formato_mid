@@ -38,9 +38,8 @@ PLANEACION_FORMATO_MID_SOME_VARIABLE=some_value bee run
 ## Ejecución Pruebas
 
 Pruebas unitarias
-```
+
 ![# En Proceso](/tests/Unit_Test/pruebas.png)
-```
 
 ## Licencia
 
