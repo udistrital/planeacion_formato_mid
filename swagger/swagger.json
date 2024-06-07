@@ -2,7 +2,7 @@
     "swagger": "2.0",
     "info": {
         "title": "beego Test API",
-        "description": "beego has a very cool tools to autogenerate documents for your API\n",
+        "description": "beego has a very cool tools to autogenerate documents for your API",
         "version": "1.0.0",
         "termsOfService": "http://beego.me/",
         "contact": {
@@ -20,7 +20,7 @@
                 "tags": [
                     "formato"
                 ],
-                "description": "Consulta el Formato por id\n\u003cbr\u003e",
+                "description": "Consulta el Formato por id",
                 "operationId": "FormatoController.ConsultarFormato",
                 "parameters": [
                     {
