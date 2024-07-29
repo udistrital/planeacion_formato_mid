@@ -3,11 +3,13 @@ package services
 import (
 	"encoding/json"
 	"errors"
+	"sync"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/udistrital/planeacion_formato_mid/models"
 	"github.com/udistrital/utils_oas/request"
+	"golang.org/x/sync/errgroup"
 )
 
 var DatavalidaT = []string{}
@@ -30,7 +32,7 @@ func ConsultarFormato(id string) (interface{}, error) {
 			} else {
 				logs.Error("Error en Service.ConsultarFormato -->", arbol)
 				return nil, errors.New(err.Error())
-			}	
+			}
 		} else {
 			logs.Error("Error en Service.ConsultarFormato -->", respuesta)
 			return nil, errors.New(err.Error())
@@ -53,65 +55,79 @@ func Limpia(plan map[string]interface{}) {
 }
 
 func ConstruirArbol(hijos []models.Nodo, hijosID []map[string]interface{}) ([][]map[string]interface{}, error) {
-	var arbol []map[string]interface{}
+	// var arbol []map[string]interface{}
+	var arbol = make([]map[string]interface{}, len(hijos))
 	var requeridos []map[string]interface{}
 	var nodo []models.NodoDetalle
 	var respuesta map[string]interface{}
 	var resultado [][]map[string]interface{}
+	wge := new(errgroup.Group)
+	var mutex sync.Mutex
 
 	for i := 0; i < len(hijos); i++ {
-		if hijos[i].Activo {
-			forkData := make(map[string]interface{})
-			var id string
-			forkData["id"] = hijosID[i]["_id"]
-			forkData["nombre"] = hijos[i].Nombre
-			jsonString, _ := json.Marshal(hijosID[i]["_id"])
-			if err := json.Unmarshal(jsonString, &id); err != nil {
-				logs.Error("Error en Service.ConstruirArbol -->", err)
-				return nil, errors.New(err.Error())
-			}
+		i := i
+		wge.Go(func() error {
+			if hijos[i].Activo {
+				forkData := make(map[string]interface{})
+				var id string
+				forkData["id"] = hijosID[i]["_id"]
+				forkData["nombre"] = hijos[i].Nombre
+				jsonString, _ := json.Marshal(hijosID[i]["_id"])
+				if err := json.Unmarshal(jsonString, &id); err != nil {
+					logs.Error("Error en Service.ConstruirArbol -->", err)
+					return errors.New(err.Error())
+				}
 
-			if err := request.GetJson("http://"+beego.AppConfig.String("PlanesService")+"/subgrupo-detalle/detalle/"+id, &respuesta); err == nil {
-				request.LimpiezaRespuestaRefactor(respuesta, &nodo)
-				if len(nodo) > 0 {
-					var deta map[string]interface{}
-					if err := json.Unmarshal([]byte(nodo[0].Dato), &deta); err == nil {
-						if (deta["type"] != nil) && (deta["required"] != nil) && (deta["options"] == nil) {
-							forkData["type"] = deta["type"]
-							forkData["required"] = deta["required"]
-						} else if (deta["type"] != nil) && (deta["required"] != nil) && (deta["options"] != nil) {
-							forkData["type"] = deta["type"]
-							forkData["required"] = deta["required"]
-							forkData["options"] = deta["options"]
+				if err := request.GetJson("http://"+beego.AppConfig.String("PlanesService")+"/subgrupo-detalle/detalle/"+id, &respuesta); err == nil {
+					request.LimpiezaRespuestaRefactor(respuesta, &nodo)
+					if len(nodo) > 0 {
+						var deta map[string]interface{}
+						if err := json.Unmarshal([]byte(nodo[0].Dato), &deta); err == nil {
+							if (deta["type"] != nil) && (deta["required"] != nil) && (deta["options"] == nil) {
+								forkData["type"] = deta["type"]
+								forkData["required"] = deta["required"]
+							} else if (deta["type"] != nil) && (deta["required"] != nil) && (deta["options"] != nil) {
+								forkData["type"] = deta["type"]
+								forkData["required"] = deta["required"]
+								forkData["options"] = deta["options"]
+							} else {
+								forkData["type"] = " "
+								forkData["required"] = " "
+							}
 						} else {
-							forkData["type"] = " "
-							forkData["required"] = " "
+							logs.Error("Error en Service.ConstruirArbol -->", err)
+							return errors.New(err.Error())
+						}
+					}
+				} else {
+					logs.Error("Error en Service.ConstruirArbol -->", respuesta)
+					return errors.New(err.Error())
+				}
+
+				if len(hijos[i].Hijos) > 0 {
+					if respuestaHijos, err := ConsultarHijos(hijos[i].Hijos); err == nil {
+						if len(respuestaHijos) == 0 {
+							forkData["sub"] = ""
+						} else {
+							forkData["sub"] = make([]map[string]interface{}, len(respuestaHijos))
+							forkData["sub"] = respuestaHijos
 						}
 					} else {
-						logs.Error("Error en Service.ConstruirArbol -->", err)
-						return nil, errors.New(err.Error())
+						logs.Error("Error en Service.ConstruirArbol -->", respuestaHijos)
+						return errors.New(err.Error())
 					}
 				}
-			} else {
-				logs.Error("Error en Service.ConstruirArbol -->", respuesta)
-				return nil, errors.New(err.Error())
+				mutex.Lock()
+				// arbol = append(arbol, forkData)
+				arbol[i] = forkData
+				add(id)
+				mutex.Unlock()
 			}
-			if len(hijos[i].Hijos) > 0 {
-				if respuestaHijos, err:= ConsultarHijos(hijos[i].Hijos); err == nil{
-					if len(respuestaHijos) == 0 {
-						forkData["sub"] = ""
-					} else {
-						forkData["sub"] = make([]map[string]interface{}, len(respuestaHijos))
-						forkData["sub"] = respuestaHijos
-					}
-				}else{
-					logs.Error("Error en Service.ConstruirArbol -->", respuestaHijos)
-					return nil, errors.New(err.Error())
-				}
-			}
-			arbol = append(arbol, forkData)
-			add(id)
-		}
+			return nil
+		})
+	}
+	if err := wge.Wait(); err != nil {
+		return nil, errors.New(err.Error())
 	}
 	requeridos = Convertir(DatavalidaT)
 	resultado = append(resultado, arbol)
@@ -166,7 +182,7 @@ func ConsultarHijos(hijos []string) ([]map[string]interface{}, error) {
 						}
 
 						if len(nodo.Hijos) > 0 {
-							if respuestaHijos, err:= ConsultarHijos(nodo.Hijos); err == nil{
+							if respuestaHijos, err := ConsultarHijos(nodo.Hijos); err == nil {
 								if len(respuestaHijos) == 0 {
 									forkData["sub"] = ""
 								} else {
@@ -176,10 +192,10 @@ func ConsultarHijos(hijos []string) ([]map[string]interface{}, error) {
 								logs.Error("Error en Service.ConsultarHijos -->", respuestaHijos)
 								return nil, errors.New(err.Error())
 							}
-							
+
 						}
 						Arbolhijos = append(Arbolhijos, forkData)
-					}else {
+					} else {
 						logs.Error("Error en Service.ConsultarHijos -->", err)
 						return nil, errors.New(err.Error())
 					}
